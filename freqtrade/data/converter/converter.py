@@ -86,6 +86,7 @@ def clean_ohlcv_dataframe(
     )
     # eliminate partial candle
     if drop_incomplete:
+        print("data.tail(1)", data.tail(1))
         data.drop(data.tail(1).index, inplace=True)
         logger.debug("Dropping last candle")
 

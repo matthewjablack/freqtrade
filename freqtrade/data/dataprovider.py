@@ -388,6 +388,8 @@ class DataProvider:
             Returns empty dataframe and Epoch 0 (1970-01-01) if no dataframe was cached.
         """
         pair_key = (pair, timeframe, self._config.get("candle_type_def", CandleType.SPOT))
+        print("get_analyzed_dataframe")
+        print("pair_key", pair_key)
         if pair_key in self.__cached_pairs:
             if self.runmode in (RunMode.DRY_RUN, RunMode.LIVE):
                 df, date = self.__cached_pairs[pair_key]
@@ -482,6 +484,7 @@ class DataProvider:
         :param copy: copy dataframe before returning if True.
                      Use False only for read-only operations (where the dataframe is not modified)
         """
+        print("Get candle (OHLCV) data for the given pair as DataFrame")
         if self._exchange is None:
             raise OperationalException(NO_EXCHANGE_EXCEPTION)
         if self.runmode in (RunMode.DRY_RUN, RunMode.LIVE):

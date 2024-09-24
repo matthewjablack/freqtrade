@@ -484,23 +484,33 @@ class Exchange:
         Return exchange ccxt markets, filtered out by base currency and quote currency
         if this was requested in parameters.
         """
+        print("get_markets")
         markets = self.markets
         if not markets:
             raise OperationalException("Markets were not loaded.")
 
+        # print("markets", markets)
+
         if base_currencies:
+            print("base_currencies", base_currencies)
             markets = {k: v for k, v in markets.items() if v["base"] in base_currencies}
         if quote_currencies:
+            print("quote_currencies", quote_currencies)
             markets = {k: v for k, v in markets.items() if v["quote"] in quote_currencies}
         if tradable_only:
+            print("tradable_only", tradable_only)
             markets = {k: v for k, v in markets.items() if self.market_is_tradable(v)}
         if spot_only:
+            print("spot_only", spot_only)
             markets = {k: v for k, v in markets.items() if self.market_is_spot(v)}
         if margin_only:
+            print("margin_only", margin_only)
             markets = {k: v for k, v in markets.items() if self.market_is_margin(v)}
         if futures_only:
+            print("futures_only", futures_only)
             markets = {k: v for k, v in markets.items() if self.market_is_future(v)}
         if active_only:
+            print("active_only", active_only)
             markets = {k: v for k, v in markets.items() if market_is_active(v)}
         return markets
 
@@ -520,9 +530,8 @@ class Exchange:
         return self.markets.get(pair, {}).get("base", "")
 
     def market_is_future(self, market: Dict[str, Any]) -> bool:
-        return (
-            market.get(self._ft_has["ccxt_futures_name"], False) is True
-            and market.get("linear", False) is True
+        return market.get(self._ft_has["ccxt_futures_name"], False) is True and (
+            market.get("linear", False) is True or market.get("inverse", False) is True
         )
 
     def market_is_spot(self, market: Dict[str, Any]) -> bool:
@@ -536,6 +545,12 @@ class Exchange:
         Check if the market symbol is tradable by Freqtrade.
         Ensures that Configured mode aligns to
         """
+        # print("market", market)
+        if market.get("id", None) == "BTC-PERPETUAL":
+            print("market", market)
+            print(self.market_is_future(market))
+            print(self.market_is_spot(market))
+            print(self.market_is_margin(market))
         return (
             market.get("quote", None) is not None
             and market.get("base", None) is not None
@@ -552,9 +567,12 @@ class Exchange:
         )
 
     def klines(self, pair_interval: PairWithTimeframe, copy: bool = True) -> DataFrame:
+        print("get klines")
         if pair_interval in self._klines:
+            print("get klines 1")
             return self._klines[pair_interval].copy() if copy else self._klines[pair_interval]
         else:
+            print("get klines 2")
             return DataFrame()
 
     def trades(self, pair_interval: PairWithTimeframe, copy: bool = True) -> DataFrame:
@@ -627,6 +645,8 @@ class Exchange:
                 self._api_async.load_markets(reload=reload, params={})
             )
 
+            # print("markets", markets)
+
             if isinstance(markets, Exception):
                 raise markets
             return markets
@@ -651,7 +671,13 @@ class Exchange:
         try:
             # Reload async markets, then assign them to sync api
             self._markets = self._load_async_markets(reload=True)
+            print("==================================================================")
+            # print("self._markets", self._markets)
+            print("step 1")
+            print("------------------------------------------------------------------")
+            # print("self._api_async.markets", self._api_async.markets)
             self._api.set_markets(self._api_async.markets, self._api_async.currencies)
+            print("step 2")
             # Assign options array, as it contains some temporary information from the exchange.
             self._api.options = self._api_async.options
             if self._exchange_ws:
@@ -700,10 +726,12 @@ class Exchange:
             logger.warning("Unable to validate pairs (assuming they are correct).")
             return
         extended_pairs = expand_pairlist(pairs, list(self.markets), keep_invalid=True)
+        print("extended_pairs", extended_pairs)
         invalid_pairs = []
         for pair in extended_pairs:
             # Note: ccxt has BaseCurrency/QuoteCurrency format for pairs
             if self.markets and pair not in self.markets:
+                print("pair not in markets", pair not in self.markets)
                 raise OperationalException(
                     f"Pair {pair} is not available on {self.name} {self.trading_mode.value}. "
                     f"Please remove {pair} from your whitelist."
@@ -758,6 +786,8 @@ class Exchange:
                 f"for the exchange {self.name} and this exchange "
                 f"is therefore not supported. ccxt fetchOHLCV: {self.exchange_has('fetchOHLCV')}"
             )
+
+        print("timeframes", self.timeframes)
 
         if timeframe and (timeframe not in self.timeframes):
             raise ConfigurationError(
@@ -883,9 +913,16 @@ class Exchange:
         Throws OperationalException:
             If the trading_mode/margin_mode type are not supported by freqtrade on this exchange
         """
+        print(
+            "self._supported_trading_mode_margin_pairs", self._supported_trading_mode_margin_pairs
+        )
         if trading_mode != TradingMode.SPOT and (
             (trading_mode, margin_mode) not in self._supported_trading_mode_margin_pairs
         ):
+            print(
+                "self._supported_trading_mode_margin_pairs",
+                self._supported_trading_mode_margin_pairs,
+            )
             mm_value = margin_mode and margin_mode.value
             raise OperationalException(
                 f"Freqtrade does not support {mm_value} {trading_mode.value} on {self.name}"
@@ -2341,13 +2378,17 @@ class Exchange:
         since_ms: Optional[int],
         cache: bool,
     ) -> Coroutine[Any, Any, OHLCVResponse]:
+        print("_build_coroutine")
         not_all_data = cache and self.required_candle_call_count > 1
         if cache and candle_type in (CandleType.SPOT, CandleType.FUTURES):
             if self._has_watch_ohlcv and self._exchange_ws:
                 # Subscribe to websocket
                 self._exchange_ws.schedule_ohlcv(pair, timeframe, candle_type)
 
+        print("build_coroutine a")
+
         if cache and (pair, timeframe, candle_type) in self._klines:
+            print("build_coroutine b")
             candle_limit = self.ohlcv_candle_limit(timeframe, candle_type)
             min_date = int(date_minus_candles(timeframe, candle_limit - 5).timestamp())
 
@@ -2388,6 +2429,7 @@ class Exchange:
                 del self._klines[(pair, timeframe, candle_type)]
 
         if not since_ms and (self._ft_has["ohlcv_require_since"] or not_all_data):
+            print("build_coroutine c")
             # Multiple calls for one pair - to get more history
             one_call = timeframe_to_msecs(timeframe) * self.ohlcv_candle_limit(
                 timeframe, candle_type, since_ms
@@ -2397,11 +2439,13 @@ class Exchange:
             since_ms = dt_ts(now - timedelta(seconds=move_to // 1000))
 
         if since_ms:
+            print("build_coroutine d")
             return self._async_get_historic_ohlcv(
                 pair, timeframe, since_ms=since_ms, raise_=True, candle_type=candle_type
             )
         else:
             # One call ... "regular" refresh
+            print("build_coroutine e")
             return self._async_get_candle_history(
                 pair, timeframe, since_ms=since_ms, candle_type=candle_type
             )
@@ -2412,6 +2456,7 @@ class Exchange:
         """
         Build Coroutines to execute as part of refresh_latest_ohlcv
         """
+        print("_build_ohlcv_dl_jobs")
         input_coroutines: List[Coroutine[Any, Any, OHLCVResponse]] = []
         cached_pairs = []
         for pair, timeframe, candle_type in set(pair_list):
@@ -2431,11 +2476,13 @@ class Exchange:
                 or not cache
                 or self._now_is_time_to_refresh(pair, timeframe, candle_type)
             ):
+                print("build_coroutine")
                 input_coroutines.append(
                     self._build_coroutine(pair, timeframe, candle_type, since_ms, cache)
                 )
 
             else:
+                print("build_coroutine 2")
                 logger.debug(
                     f"Using cached candle (OHLCV) data for {pair}, {timeframe}, {candle_type} ..."
                 )
@@ -2452,6 +2499,7 @@ class Exchange:
         cache: bool,
         drop_incomplete: bool,
     ) -> DataFrame:
+        print("_process_ohlcv_df")
         # keeping last candle time as last refreshed time of the pair
         if ticks and cache:
             idx = -2 if drop_incomplete and len(ticks) > 1 else -1
@@ -2475,8 +2523,10 @@ class Exchange:
                 # Age out old candles
                 ohlcv_df = ohlcv_df.tail(candle_limit + self._startup_candle_count)
                 ohlcv_df = ohlcv_df.reset_index(drop=True)
+                print("process 1")
                 self._klines[(pair, timeframe, c_type)] = ohlcv_df
             else:
+                print("process 2")
                 self._klines[(pair, timeframe, c_type)] = ohlcv_df
         return ohlcv_df
 

@@ -44,3 +44,4 @@ from freqtrade.exchange.idex import Idex
 from freqtrade.exchange.kraken import Kraken
 from freqtrade.exchange.kucoin import Kucoin
 from freqtrade.exchange.okx import Okx
+from freqtrade.exchange.deribit import Deribit

@@ -656,6 +656,9 @@ class FreqtradeBot(LoggingMixin):
         analyzed_df, _ = self.dataprovider.get_analyzed_dataframe(pair, self.strategy.timeframe)
         nowtime = analyzed_df.iloc[-1]["date"] if len(analyzed_df) > 0 else None
 
+        print("analyzed_df", analyzed_df)
+        print("nowtime", nowtime)
+
         # get_free_open_trades is checked before create_trade is called
         # but it is still used here to prevent opening too many trades within one iteration
         if not self.get_free_open_trades():

@@ -202,6 +202,9 @@ def start_list_markets(args: Dict[str, Any], pairs_only: bool = False) -> None:
     base_currencies = args.get("base_currencies", [])
     quote_currencies = args.get("quote_currencies", [])
 
+    print("base_currencies", base_currencies)
+    print("quote_currencies", quote_currencies)
+
     try:
         pairs = exchange.get_markets(
             base_currencies=base_currencies,
@@ -211,6 +214,8 @@ def start_list_markets(args: Dict[str, Any], pairs_only: bool = False) -> None:
         )
         # Sort the pairs/markets by symbol
         pairs = dict(sorted(pairs.items()))
+
+        # print("pairs", pairs)
     except Exception as e:
         raise OperationalException(f"Cannot get markets. Reason: {e}") from e
 
